@@ -1,0 +1,127 @@
+//Universidad del Valle de Guatemala
+//Electrónica Digital 2 - Sección 10
+//Julio Pérez 221023 - José García 22985  - Rodrigo Cabrera 22778
+
+
+//*******************************************************
+//Importación de librerías
+#include <Arduino.h>
+
+
+//************************************
+//Definiciones
+// Definimos los pines
+// Definimos los pines
+const int ledPins[4] = {25, 26, 27, 14}; // Arreglo utilizado para los pines donde se conectarán los LEDS
+const int modeButtonPin = 4;   // Botón de cambio de modo 
+const int decrementButtonPin = 5; // Botón de decrecimiento
+const int incrementButtonPin = 15; // Botón Incrementador
+
+// Variables utilizadas para el cambio de estado
+int counter_binary = 0;
+int counter_decimal = 0;
+//Arreglo para encender los pines de las LEDS
+int decadas[5] = {0b0000, 0b0001, 0b0010, 0b0100, 0b1000};
+//Variable para desplazarse dentro del arreglo decadas
+int d = 0;
+bool Modobinario = true; // se hace un lazo infinito para cambiar de modo binario a decimal
+bool estadomodo = HIGH; 
+bool estadoincremento = HIGH; 
+bool estadodecremento = HIGH; 
+
+
+void setup() {
+  for (int i = 0; i < 4; i++) {
+    pinMode(ledPins[i], OUTPUT);
+  }
+  pinMode(modeButtonPin, INPUT);          // Configuración de modo con resistencia externa
+  pinMode(incrementButtonPin, INPUT_PULLUP); // Botón de Incremento como pullup 
+  pinMode(decrementButtonPin, INPUT_PULLDOWN); // Botón de decremento como pulldown
+  
+  // Inicialización de la función serial para tener visualización de los valores en el monitor
+  Serial.begin(115200);
+}
+
+void loop() {
+  // Leer el estado de los botones
+  bool newModeButtonState = digitalRead(modeButtonPin);
+  bool newIncrementButtonState = digitalRead(incrementButtonPin);
+  bool newDecrementButtonState = digitalRead(decrementButtonPin);
+  
+  // Cambiar modo de conteo al presionar el botón de modo
+  if (newModeButtonState == LOW && estadomodo == HIGH) { //Asegura que el botón esté en condiciones específicas para cambiar de modo
+    Modobinario = !Modobinario;
+    //Imprime en el monitor serial el nuevo estado 
+    Serial.println(Modobinario ? "Modo binario" : "Modo en décadas");
+    // Delay para antirrebote
+    delay(100); 
+  }
+  estadomodo = newModeButtonState;
+  
+  // Configuración del botón incremento
+  if (newIncrementButtonState == LOW && estadoincremento == HIGH) { 
+    // Verifica si el botón de incremento ha sido presionado.
+    // La condición `newIncrementButtonState == LOW && incrementButtonState == HIGH` detecta el cambio de HIGH a LOW, lo que indica que el botón fue presionado.
+    if (Modobinario) {
+      // Si estamos en modo binario, incrementa el contador binario
+      counter_binary = (counter_binary + 1) & 0xF; // Mantener el contador dentro de 4 bits (0-15)
+     // Incrementa el valor del contador binario y utiliza `0xF` para asegurarse de que el contador se mantenga dentro del rango de 4 bits
+    } else {
+      // Si estamos en modo de décadas, incrementa el contador decimal
+      counter_decimal = (counter_decimal + 1) % 5;  // Asegura de que el contador no supere el rango de 0-4
+      d = counter_decimal;  
+      // Actualiza la variable `d` con el nuevo valor de `counter_decimal`. En este caso, `d` simplemente toma el valor de `counter_decimal`, ya que `counter_decimal` siempre estará en el rango de 0 a 4.   
+    }
+
+    Serial.println(counter_binary);
+    Serial.println(counter_decimal);
+    Serial.println(d);
+    // Delay para antirrebote
+    delay(100); 
+  }
+  estadoincremento = newIncrementButtonState;
+  
+  //Configuración del botón de decremento, funciona de forma inversa al botón incremento pero con la misma base
+  if (newDecrementButtonState == LOW && estadodecremento == HIGH) { 
+    if (Modobinario) {
+      counter_binary = (counter_binary - 1) & 0xF; 
+    } else {
+      counter_decimal = (counter_decimal - 1 + 5) % 5;  
+      d = counter_decimal;  
+    Serial.println(counter_binary);
+    Serial.println(counter_decimal);
+    Serial.println(d);
+    // Delay para antirrebote
+    delay(100); 
+  }
+  }
+  estadodecremento = newDecrementButtonState; //Actualizador
+  
+ 
+    // Actualizar LEDs
+  if (Modobinario) { // Verifica si el modo actual es binario
+    // Se actualizan las LEDs en función del valor del contador binario
+    for (int i = 0; i < 4; i++) { // Se mueve a través de los 4 LEDs
+      // Configura el estado de cada LED basado en los bits del contador binario
+      // Desplaza los bits del contador binario hacia la derecha y usa una máscara para extraer el bit correspondiente
+      // Luego, asigna el valor (0 o 1) al pin del LED correspondiente
+      digitalWrite(ledPins[i], (counter_binary >> i) & 0x01);
+    }
+  } else {
+    // Actualiza las LEDs en función del valor del contador en décadas
+    for (int i = 0; i < 4; i++) { 
+      digitalWrite(ledPins[i], (decadas[d] >> i) & 0x01);
+    }
+  }
+
+  // Delay para antirrebote
+  delay(100);
+}
+
+
+
+
+//*************************************************
+//Otras funciones
+
+//************************************************
