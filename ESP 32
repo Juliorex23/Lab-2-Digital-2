@@ -1,0 +1,121 @@
+// Universidad del Valle de Guatemala
+// Electrónica Digital 2 - Sección 10
+// Julio Pérez 221023 - José García 22985 - Rodrigo Cabrera 22778
+
+//*******************************************************
+// Importación de librerías
+#include <driver/gpio.h>
+
+//************************************
+// Definiciones de pines
+const gpio_num_t ledPins[4] = {GPIO_NUM_25, GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_14}; // Arreglo con los pines de los LEDs
+const gpio_num_t modeButtonPin = GPIO_NUM_4;   // Pin para el botón de cambio de modo
+const gpio_num_t decrementButtonPin = GPIO_NUM_5; // Pin para el botón de decremento
+const gpio_num_t incrementButtonPin = GPIO_NUM_15; // Pin para el botón de incremento
+
+// Variables utilizadas para el cambio de estado
+int counter_binary = 0;
+int counter_decimal = 0;
+// Arreglo para encender los pines de los LEDs en modo de décadas
+int decadas[5] = {0b0000, 0b0001, 0b0010, 0b0100, 0b1000};
+// Variable para desplazarse dentro del arreglo decadas
+int d = 0;
+bool Modobinario = true; // Modo binario o decimal
+bool estadomodo = HIGH; 
+bool estadoincremento = HIGH; 
+bool estadodecremento = HIGH; 
+
+void setup() {
+  // Configuración de pines de LEDs como salidas
+  for (int i = 0; i < 4; i++) {
+    gpio_set_direction(ledPins[i], GPIO_MODE_OUTPUT);
+  }
+
+  // Configuración de pines de botones con resistencias internas
+  gpio_set_direction(modeButtonPin, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(modeButtonPin, GPIO_PULLUP_ONLY); // Resistencia pull-up interna
+
+  gpio_set_direction(incrementButtonPin, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(incrementButtonPin, GPIO_PULLUP_ONLY); // Resistencia pull-up interna
+
+  gpio_set_direction(decrementButtonPin, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(decrementButtonPin, GPIO_PULLDOWN_ONLY); // Resistencia pull-down interna
+  
+  // Inicialización de la comunicación serial
+  Serial.begin(115200);
+}
+
+void loop() {
+  // Leer el estado de los botones
+  bool newModeButtonState = gpio_get_level(modeButtonPin);
+  bool newIncrementButtonState = gpio_get_level(incrementButtonPin);
+  bool newDecrementButtonState = gpio_get_level(decrementButtonPin);
+  
+  // Cambiar modo de conteo al presionar el botón de modo
+  if (newModeButtonState == 0 && estadomodo == 1) { // LOW es 0 y HIGH es 1 en esta biblioteca
+    Modobinario = !Modobinario;
+    // Imprimir en el monitor serial el nuevo estado
+    Serial.println(Modobinario ? "Modo binario" : "Modo en décadas");
+    // Delay para antirrebote
+    delay(100); 
+  }
+  estadomodo = newModeButtonState;
+  
+  // Configuración del botón de incremento
+  if (newIncrementButtonState == 0 && estadoincremento == 1) { 
+    if (Modobinario) {
+      // Si estamos en modo binario, incrementa el contador binario
+      counter_binary = (counter_binary + 1) & 0xF; // Mantener el contador dentro de 4 bits (0-15)
+    } else {
+      // Si estamos en modo de décadas, incrementa el contador decimal
+      counter_decimal = (counter_decimal + 1) % 5;  // Asegura que el contador no supere el rango de 0-4
+      d = counter_decimal;
+    }
+
+    Serial.println(counter_binary);
+    Serial.println(counter_decimal);
+    Serial.println(d);
+    // Delay para antirrebote
+    delay(100); 
+  }
+  estadoincremento = newIncrementButtonState;
+  
+  // Configuración del botón de decremento
+  if (newDecrementButtonState == 0 && estadodecremento == 1) { 
+    if (Modobinario) {
+      counter_binary = (counter_binary - 1) & 0xF; 
+    } else {
+      counter_decimal = (counter_decimal - 1 + 5) % 5;
+      d = counter_decimal;
+    }
+    Serial.println(counter_binary);
+    Serial.println(counter_decimal);
+    Serial.println(d);
+    // Delay para antirrebote
+    delay(100); 
+  }
+  estadodecremento = newDecrementButtonState;
+
+  // Actualizar LEDs
+  if (Modobinario) {
+    // Se actualizan los LEDs en función del valor del contador binario
+    for (int i = 0; i < 4; i++) {
+      gpio_set_level(ledPins[i], (counter_binary >> i) & 0x01);
+    }
+  } else {
+    // Actualiza los LEDs en función del valor del contador en décadas
+    for (int i = 0; i < 4; i++) {
+      gpio_set_level(ledPins[i], (decadas[d] >> i) & 0x01);
+    }
+  }
+
+  // Delay para antirrebote
+  delay(100);
+}
+
+
+
+//*************************************************
+//Otras funciones
+
+//************************************************
